@@ -11,7 +11,24 @@ const PRODUCT_DESCRIPTIONS = new Map([
   ['aj11-concord', 'Patent leather, ballistic mesh, and the most iconic Concord colorway.'],
   ['aj12-flugame', 'Black and red legend. The pair that defined resilience and performance.']
 ]);
+const PRODUCT_IMAGE_FILES = {
+  'aj1-high-red': 'air jordan high red.png',
+  'aj1-low-panda': 'air-jordan-1-low-panda-transparent.png',
+  'aj3-black-cement': 'Nike Air Jordan 3 Retro OG Black Cement.png',
+  'aj4-bred': 'air jordan 4 bred.png',
+  'aj4-white-oreo': 'air jordan 4 white oreo.png',
+  'aj5-fire-red': 'air jordan 5 fire red.png',
+  'aj6-infrared': 'air jordan 6 ifrared.png',
+  'aj9-chile-red': 'air jordan 9 chile red.png',
+  'aj11-concord': 'air jordan 11 concord.png',
+  'aj12-flugame': 'air jordan 12 flugame.png'
+};
 const ALL_SIZES = ['6','6.5','7','7.5','8','8.5','9','9.5','10','11','12'];
+
+function localProductImage(productId) {
+  const file = PRODUCT_IMAGE_FILES[productId];
+  return file ? `/images/${file.split('/').map(encodeURIComponent).join('/')}` : '';
+}
 
 let PRODUCTS = [];
 let SHIP_OPTIONS = [];
@@ -39,6 +56,13 @@ const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, character =>
 const saveCart = () => localStorage.setItem('nike_cart', JSON.stringify(cart));
 const saveWish = () => localStorage.setItem('nike_wish', JSON.stringify(wishlist));
 
+document.addEventListener('error', event => {
+  const image = event.target;
+  if (!(image instanceof HTMLImageElement) || !image.dataset.fallback) return;
+  image.src = image.dataset.fallback;
+  delete image.dataset.fallback;
+}, true);
+
 async function apiRequest(action, method = 'GET', body) {
   const endpoint = action ? `api.php?action=${encodeURIComponent(action)}` : 'api.php';
   const headers = {};
@@ -52,7 +76,7 @@ async function apiRequest(action, method = 'GET', body) {
   });
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.toLowerCase().includes('application/json')) {
-    throw new Error('The store API did not return JSON. The PHP backend may not be running on this deployment.');
+    throw new Error(`The PHP store API is unavailable (HTTP ${response.status}). Check the Vercel Container deployment, then test /api.php?action=health.`);
   }
   let data;
   try {
@@ -73,7 +97,8 @@ async function loadCatalog() {
     PRODUCTS = catalog.products.map(product => ({
       ...product,
       sizes: Array.isArray(product.sizes) ? product.sizes : [],
-      image: product.image_url || '',
+      image: product.image_url || localProductImage(product.id),
+      imageFallback: product.image_url ? localProductImage(product.id) : '',
       desc: PRODUCT_DESCRIPTIONS.get(product.id) || '',
       category: 'jordan',
       type: 'basketball'
@@ -211,7 +236,7 @@ function renderGrid() {
         <button class="product-wish ${wishlist.includes(p.id) ? 'saved' : ''}" data-wish="${escapeHTML(p.id)}" aria-label="Wishlist">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="${wishlist.includes(p.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
         </button>
-        <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)} ${escapeHTML(p.colorway)}" loading="lazy">
+        <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" data-fallback="${escapeHTML(p.imageFallback)}" alt="${escapeHTML(p.name)} ${escapeHTML(p.colorway)}" loading="lazy">
         <button class="product-quick" data-quick="${escapeHTML(p.id)}">Quick view / Add</button>
       </div>
       <div class="product-info">
@@ -391,7 +416,7 @@ function renderCarousel() {
   const items = PRODUCTS.slice(0, 6);
   $('carousel').innerHTML = items.map(p => `
     <div class="carousel-card" data-id="${escapeHTML(p.id)}">
-      <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}">
+      <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" data-fallback="${escapeHTML(p.imageFallback)}" alt="${escapeHTML(p.name)}">
       <div class="carousel-info">
         <h4>${escapeHTML(p.name)}</h4>
         <span>${escapeHTML(p.colorway)} · ${money(p.price)}</span>
@@ -564,7 +589,7 @@ function openWishlist() {
           <div class="drawer-items">
             ${items.map(p => `
               <div class="cart-item">
-                <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}">
+                <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" data-fallback="${escapeHTML(p.imageFallback)}" alt="${escapeHTML(p.name)}">
                 <div>
                   <h3>${escapeHTML(p.name)}</h3>
                   <div class="cart-meta">${escapeHTML(p.colorway)}</div>
@@ -590,6 +615,8 @@ function openWishlist() {
 function updateCartCount() {
   const count = cart.reduce((s, l) => s + l.qty, 0);
   $('cartCount').textContent = count;
+  const detailCount = $('detailCartCount');
+  if (detailCount) detailCount.textContent = count;
 }
 
 function cartSubtotal() {
@@ -599,20 +626,23 @@ function cartSubtotal() {
   }, 0);
 }
 
-function addToCart(product, size) {
+function addToCart(product, size, { openBag = true } = {}) {
   const existing = cart.find(l => l.id === product.id && l.size === size);
   const currentQty = existing ? existing.qty : 0;
   if (currentQty >= product.stock) {
     toast('No more stock available for that size');
-    return;
+    return false;
   }
   if (existing) existing.qty++;
   else cart.push({ id: product.id, size, qty: 1 });
   saveCart();
   updateCartCount();
-  $('modalRoot').innerHTML = '';
   toast(`${product.name} · Size ${size} added`);
-  openCart();
+  if (openBag) {
+    $('modalRoot').innerHTML = '';
+    openCart();
+  }
+  return true;
 }
 
 function openCart() {
@@ -632,7 +662,7 @@ function openCart() {
               if (!p) return '';
               return `
                 <div class="cart-item">
-                  <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}">
+                  <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" data-fallback="${escapeHTML(p.imageFallback)}" alt="${escapeHTML(p.name)}">
                   <div>
                     <h3>${escapeHTML(p.name)}</h3>
                     <div class="cart-meta">Size ${escapeHTML(l.size)} · ${escapeHTML(p.colorway)}</div>
@@ -696,39 +726,112 @@ $('cartBtn').addEventListener('click', openCart);
 function openDetail(p) {
   selectedSize = null;
   const root = $('modalRoot');
+  const closeDetail = () => {
+    root.innerHTML = '';
+    document.documentElement.classList.remove('product-detail-open');
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('product')) {
+      url.searchParams.delete('product');
+      window.history.replaceState(null, '', url);
+    }
+  };
+  document.documentElement.classList.add('product-detail-open');
   root.innerHTML = `
-    <div class="backdrop" id="detailBack">
-      <div class="modal">
-        <button class="close-btn" id="closeDetail">×</button>
-        <div class="modal-image ${p.id === 'aj1-low-panda' ? 'panda-visual' : ''}">
-          <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}">
+    <div class="product-detail-page" id="detailBack">
+      <header class="product-detail-toolbar">
+        <button class="detail-icon-button" id="closeDetail" type="button" aria-label="Back to products">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/><path d="M9 12h12"/></svg>
+        </button>
+        <div class="detail-toolbar-actions">
+          <button class="detail-icon-button" id="detailShare" type="button" aria-label="Share product">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.7 10.7 6.6-4.4m-6.6 7 6.6 4.4"/></svg>
+          </button>
+          <button class="detail-icon-button" id="detailSearch" type="button" aria-label="Search products">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          </button>
+          <button class="detail-icon-button detail-cart-button" id="detailCart" type="button" aria-label="Open cart">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.9a2 2 0 0 0 1.9-1.4L22 9H6"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg>
+            <span class="detail-cart-count" id="detailCartCount">${cart.reduce((sum, line) => sum + line.qty, 0)}</span>
+          </button>
         </div>
-        <div class="modal-content">
-          <div class="eyebrow">AJ · ${escapeHTML(p.colorway)}</div>
-          <h2>${escapeHTML(p.name)}</h2>
-          <div class="modal-price">${money(p.price)}</div>
-          <p class="modal-desc">${escapeHTML(p.desc)}</p>
-          <div class="size-label">
-            <span>Select Size</span>
-            <span>US Men</span>
+      </header>
+      <main class="product-detail-content">
+        <div class="product-detail-image ${p.id === 'aj1-low-panda' ? 'panda-visual' : ''}">
+          <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${escapeHTML(p.image)}" data-fallback="${escapeHTML(p.imageFallback)}" alt="${escapeHTML(p.name)} ${escapeHTML(p.colorway)}">
+        </div>
+        <section class="product-detail-info" aria-labelledby="detailTitle">
+          <p class="product-detail-eyebrow">HALFCOURT · AVAILABLE NOW</p>
+          <div class="product-detail-title-row">
+            <div>
+              <h1 id="detailTitle">${escapeHTML(p.name)}</h1>
+              <p class="product-detail-colorway">AJ · ${escapeHTML(p.colorway)}</p>
+            </div>
+            <button class="detail-heart-button ${wishlist.includes(p.id) ? 'saved' : ''}" id="detailWish" type="button" aria-label="${wishlist.includes(p.id) ? 'Remove from wishlist' : 'Add to wishlist'}" aria-pressed="${wishlist.includes(p.id)}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+            </button>
           </div>
+          <p class="product-detail-price">${money(p.price)}</p>
+          <p class="product-detail-description">${escapeHTML(p.desc)}</p>
+          <div class="product-detail-size-heading"><span>Select size</span><span>US Men</span></div>
           <div class="sizes">
             ${ALL_SIZES.map(s => `
-              <button class="size-btn ${p.sizes.includes(s) ? '' : ''}"
-                data-size="${s}"
-                ${p.sizes.includes(s) ? '' : 'disabled'}>${s}</button>
+              <button class="size-btn" data-size="${s}" ${p.sizes.includes(s) ? '' : 'disabled'}>${s}</button>
             `).join('')}
           </div>
-          <button class="btn btn-primary add-btn" id="addToBag" disabled>Select a size</button>
-          <div class="stock-note">
-            ${p.stock > 0 ? `● ${p.stock} pairs available` : '● Currently sold out'}
-          </div>
-        </div>
-      </div>
+          <p class="product-detail-stock">${p.stock > 0 ? `● ${p.stock} pairs available` : '● Currently sold out'}</p>
+          <a class="product-detail-contact" href="tel:09917257903">Questions? Call 09917257903</a>
+        </section>
+      </main>
+      <footer class="product-detail-actions">
+        <button class="detail-buy-button detail-add-button" id="addToBag" type="button" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 7h12l1 14H5L6 7Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg>
+          <span>Add to Cart</span>
+        </button>
+        <button class="detail-buy-button detail-buy-now" id="buyNow" type="button" disabled>Buy Now</button>
+      </footer>
     </div>
   `;
-  $('closeDetail').onclick = () => root.innerHTML = '';
-  $('detailBack').onclick = e => { if (e.target.id === 'detailBack') root.innerHTML = ''; };
+  $('closeDetail').onclick = closeDetail;
+  $('detailCart').onclick = () => {
+    closeDetail();
+    openCart();
+  };
+  $('detailSearch').onclick = () => {
+    closeDetail();
+    document.getElementById('shop').scrollIntoView({ behavior: 'smooth' });
+    $('searchInput').focus({ preventScroll: true });
+  };
+  $('detailShare').onclick = async () => {
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set('product', p.id);
+    const shareData = {
+      title: `${p.name} · ${p.colorway} | HalfCourt`,
+      text: `${p.name} in ${p.colorway} — ${money(p.price)}`,
+      url: shareUrl.href
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareData.url);
+        toast('Product link copied');
+      } else {
+        toast('Sharing is not available in this browser');
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      console.error('Product sharing failed:', error);
+      toast('Could not share this product');
+    }
+  };
+  $('detailWish').onclick = () => {
+    toggleWish(p.id);
+    const saved = wishlist.includes(p.id);
+    const button = $('detailWish');
+    button.classList.toggle('saved', saved);
+    button.setAttribute('aria-pressed', String(saved));
+    button.setAttribute('aria-label', saved ? 'Remove from wishlist' : 'Add to wishlist');
+  };
 
   root.querySelectorAll('.size-btn:not(:disabled)').forEach(btn => {
     btn.onclick = () => {
@@ -736,13 +839,20 @@ function openDetail(p) {
       btn.classList.add('selected');
       selectedSize = btn.dataset.size;
       const addBtn = $('addToBag');
-      addBtn.disabled = false;
-      addBtn.textContent = `Add Size ${selectedSize} to Bag`;
+      const buyButton = $('buyNow');
+      addBtn.disabled = buyButton.disabled = false;
+      addBtn.querySelector('span').textContent = `Add Size ${selectedSize} to Cart`;
       addBtn.onclick = () => {
-        animateCartFlight(p, root.querySelector('.modal-image img'));
-        addBtn.textContent = 'Added ✓';
-        addBtn.classList.add('is-added');
-        addToCart(p, selectedSize);
+        animateCartFlight(p, root.querySelector('.product-detail-image img'));
+        if (addToCart(p, selectedSize, { openBag: false })) {
+          addBtn.querySelector('span').textContent = `Added Size ${selectedSize}`;
+        }
+      };
+      buyButton.onclick = () => {
+        if (addToCart(p, selectedSize, { openBag: false })) {
+          closeDetail();
+          openCheckout();
+        }
       };
     };
   });
@@ -907,7 +1017,8 @@ function openCheckout() {
         name: product ? product.name : line.id,
         colorway: product ? product.colorway : '',
         price: product ? product.price : 0,
-        image: product ? product.image : ''
+        image: product ? product.image : '',
+        imageFallback: product ? product.imageFallback : ''
       };
     });
     const shippingDetails = feeOpt ? {
@@ -965,7 +1076,7 @@ function openCheckout() {
               <div class="order-items-mini">
                 ${orderItems.map(item => `
                   <div class="order-item-detail">
-                    <img src="${escapeHTML(item.image)}" alt="${escapeHTML(item.name)} ${escapeHTML(item.colorway)}">
+                    <img src="${escapeHTML(item.image)}" data-fallback="${escapeHTML(item.imageFallback)}" alt="${escapeHTML(item.name)} ${escapeHTML(item.colorway)}">
                     <div>
                       <strong>${escapeHTML(item.name)}</strong>
                       <span>${escapeHTML(item.colorway)} · Size ${escapeHTML(item.size)} · Qty ${Number(item.qty)}</span>
@@ -1108,6 +1219,12 @@ async function boot() {
   await loadCatalog();
   renderGrid();
   renderCarousel();
+  const sharedProductId = new URLSearchParams(window.location.search).get('product');
+  if (sharedProductId) {
+    const sharedProduct = PRODUCTS.find(product => product.id === sharedProductId);
+    if (sharedProduct) openDetail(sharedProduct);
+    else toast('That product is no longer available');
+  }
   updateCartCount();
   updateWishCount();
   initHeroSpinner();

@@ -9,7 +9,7 @@ Both views use the same Supabase project and database. Customer accounts and adm
 
 ## What is deployed
 
-The Vercel entry point is the PHP storefront and API: `index.html`, `script.js`, and `api.php`, packaged by `Dockerfile.vercel` and selected by `vercel.json`. This is one Vercel site, not separate customer and admin deployments.
+The Vercel entry point is the PHP storefront and API: `index.html`, `script.js`, and `api.php`, packaged by `Dockerfile.vercel` and served by FrankenPHP/Caddy. This is one Vercel site, not separate customer and admin deployments.
 
 The `app/` and `lib/` folders contain source from the earlier Next.js dashboard. They are included in this repository, but are not the current Vercel entry point. The current admin UI is embedded in `index.html`.
 
@@ -41,7 +41,7 @@ Replace both example UUIDs before running the query. Only users in these two slo
 
 ## Configure Vercel
 
-Connect this repository to one Vercel project using the repository root as the project root. Keep the framework configuration from `vercel.json`; it selects the PHP container instead of treating `app/` as a separate Next.js deployment.
+Connect this repository to one Vercel project using the repository root as the project root. The `Dockerfile.vercel` and `vercel.json` select the Container framework instead of treating `app/` as a separate Next.js deployment. After deployment, open `/api.php?action=health`; a working PHP deployment returns `{"status":"ok","service":"store-api"}`.
 
 In **Vercel → Project Settings → Environment Variables**, set:
 
@@ -82,6 +82,6 @@ The site does not process real payments. Test checkout with non-production data 
 
 - `index.html`, `script.js`, `api.php` — combined storefront/admin page and server API.
 - `supabase-schema.sql`, `sql/` — database schema and optional/admin setup SQL.
-- `Dockerfile.vercel`, `.dockerignore`, `vercel.json` — Vercel PHP container configuration; SQL, documentation, ERD files, local config, and unused Next.js source are excluded from the deployed image.
+- `Dockerfile.vercel`, `Caddyfile`, `.dockerignore`, `vercel.json` — Vercel PHP container configuration; SQL, documentation, ERD files, local config, and unused Next.js source are excluded from the deployed image.
 - `app/`, `lib/` — retained Next.js dashboard source; not selected by the current deployment configuration.
 - `images/` — storefront image assets.

@@ -1,11 +1,14 @@
-FROM php:8.3-cli
+FROM dunglas/frankenphp:1-php8.4-alpine
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpq-dev \
-    && docker-php-ext-install pdo_pgsql \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
 
-WORKDIR /var/www/html
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
+    && install-php-extensions pdo_pgsql \
+    && echo 'session.save_path=/tmp' > "$PHP_INI_DIR/conf.d/zz-session.ini"
+
 COPY . .
+COPY Caddyfile /etc/caddy/Caddyfile
 
-CMD ["sh", "-c", "php -d session.save_path=/tmp -S 0.0.0.0:${PORT:-80} -t /var/www/html"]
+ENV PORT=80
+
+CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]

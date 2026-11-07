@@ -33,6 +33,10 @@ if (in_array($action, $postActions, true) && $_SERVER['REQUEST_METHOD'] !== 'POS
     echo json_encode(['error' => 'POST required']);
     exit;
 }
+if ($action === 'health') {
+    echo json_encode(['status' => 'ok', 'service' => 'store-api']);
+    exit;
+}
 
 function respond(array $data, int $status = 200): never {
     http_response_code($status);
