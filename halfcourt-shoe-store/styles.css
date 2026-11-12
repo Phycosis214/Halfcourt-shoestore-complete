@@ -1063,12 +1063,10 @@ $css = Replace-One $css '  .backdrop { padding: 12px; }' @'
   .modal { max-height: calc(100dvh - 24px); }'@ 'mobile checkout alignment'
 $css += @'
 
-@media (max-width: 800px) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
-  select,
-  textarea {
-    font-size: 16px !important;
-  }
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="range"]):not([type="color"]),
+select,
+textarea {
+  font-size: 16px !important;
 }
   position: fixed;
   inset: 0;
