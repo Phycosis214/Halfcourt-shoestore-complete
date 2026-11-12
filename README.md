@@ -1,2 +1,2 @@
 # Halfcourt-shoestore-complete
-a shoe website
+a shoe store website
